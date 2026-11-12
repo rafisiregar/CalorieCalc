@@ -1,0 +1,2 @@
+Folder ini boleh kosong.
+Jalankan "node scripts/unduh-model.mjs" untuk menyimpan model AI foto di sini (opsional).

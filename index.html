@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Foto Kalori</title>
+<meta name="description" content="Hitung kalori dari foto makanan atau foto menu. AI berjalan di perangkatmu, tanpa akun dan tanpa internet setelah disiapkan.">
+<meta name="theme-color" content="#1D7748" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D120F" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Foto Kalori">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div><h1>Foto Kalori</h1><small id="dateLabel"></small></div>
+    </div>
+    <div class="mini" aria-live="polite">Hari ini<br><strong id="miniKcal">0</strong> / <span id="miniTarget">2.150</span> kkal</div>
+  </header>
+
+  <main class="layout">
+    <div class="col">
+      <section class="capture" id="capture" aria-labelledby="capTitle">
+        <div class="cap-grid">
+          <div class="preview" id="preview">
+            <div class="plate" id="plate"><span>Belum ada foto</span></div>
+            <img id="photo" alt="Foto yang sedang dihitung" hidden>
+          </div>
+          <div class="cap-body">
+            <h2 id="capTitle" class="cap-title">Foto makanan atau menu</h2>
+            <p class="cap-hint">Foto piring makananmu untuk menghitung kalorinya, atau foto daftar menu untuk melihat kalori tiap hidangan sebelum memesan.</p>
+            <div class="actions">
+              <input type="file" id="camIn" class="vh" accept="image/*" capture="environment">
+              <label for="camIn" class="btn primary only-touch">Ambil foto</label>
+              <input type="file" id="galIn" class="vh" accept="image/*">
+              <label for="galIn" class="btn" id="galLabel"><span class="only-touch">Pilih dari galeri</span><span class="only-fine">Pilih foto</span></label>
+            </div>
+            <p class="drop-hint only-fine">Bisa juga tarik foto ke kotak ini, atau tempel dengan Ctrl+V.</p>
+            <div class="mode" id="modeRow" hidden>
+              <span>Baca foto ini sebagai</span>
+              <button type="button" class="chip" id="asFood" aria-pressed="true">Makanan</button>
+              <button type="button" class="chip" id="asMenu" aria-pressed="false">Daftar menu</button>
+            </div>
+            <div class="progress-line" id="work" hidden>
+              <div class="bar slim"><i id="workFill"></i></div>
+              <p id="workMsg" role="status" aria-live="polite"></p>
+              <button type="button" class="link" id="stopBtn" hidden>Berhenti</button>
+            </div>
+            <p id="scanMsg" class="status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="ai-box" id="aiBox">
+          <div>
+            <b id="aiTitle">AI foto belum disiapkan</b>
+            <p id="aiText">Unduh sekali (±150 MB), setelah itu bisa dipakai tanpa internet. Pakai Wi-Fi bila bisa.</p>
+          </div>
+          <button type="button" class="btn sm" id="aiBtn">Siapkan sekarang</button>
+        </div>
+        <div class="search">
+          <label for="q">Cari dan tambah makanan</label>
+          <input id="q" type="search" autocomplete="off" placeholder="mis. nasi goreng, bakso, es teh">
+          <ul class="search-list" id="qList" hidden></ul>
+        </div>
+      </section>
+
+      <article class="label" id="result" aria-labelledby="resTitle">
+        <div class="label-head">
+          <h2 id="resTitle">Informasi Nilai Gizi</h2>
+          <span class="kind" id="resKind">Contoh</span>
+        </div>
+        <p class="lead" id="resLead"></p>
+        <div class="rule-thick"></div>
+        <div class="cols-head"><span>Hidangan &amp; porsi</span><span>kkal</span></div>
+        <ul class="items" id="items"></ul>
+        <div class="rule-mid"></div>
+        <div class="total">
+          <div><span class="lbl">Energi total</span><span class="pct" id="totPct"></span></div>
+          <div class="big"><span id="totKcal">0</span><small>kkal</small></div>
+        </div>
+        <div class="split" aria-hidden="true"><i class="sp-p" id="spP"></i><i class="sp-c" id="spC"></i><i class="sp-f" id="spF"></i></div>
+        <dl class="macro-row">
+          <div class="macro"><dt><i class="dot sp-p"></i>Protein</dt><dd id="mP">0 g</dd></div>
+          <div class="macro"><dt><i class="dot sp-c"></i>Karbohidrat</dt><dd id="mC">0 g</dd></div>
+          <div class="macro"><dt><i class="dot sp-f"></i>Lemak</dt><dd id="mF">0 g</dd></div>
+        </dl>
+        <details class="unknown" id="unknownBox" hidden>
+          <summary id="unknownSum">Teks lain yang terbaca</summary>
+          <ul id="unknownList"></ul>
+          <p class="foot">Tidak ada di database. Pakai kotak "Cari dan tambah makanan" untuk memilih yang paling mirip.</p>
+        </details>
+        <div class="save" id="saveRow">
+          <label for="slot" class="vh">Waktu makan</label>
+          <select id="slot">
+            <option value="pagi">Sarapan</option>
+            <option value="siang">Makan siang</option>
+            <option value="malam">Makan malam</option>
+            <option value="camilan">Camilan</option>
+          </select>
+          <button type="button" id="saveBtn" class="btn primary">Catat ke hari ini</button>
+        </div>
+        <p class="foot" id="exampleFoot">Ini contoh untuk sepiring nasi rames. Foto makananmu untuk menghitung sendiri.</p>
+        <p class="foot" id="disclaimer" hidden>Angka ini perkiraan, bukan hasil timbang. Minyak, santan, dan gula yang tidak terlihat bisa membuat angka sebenarnya lebih tinggi.</p>
+      </article>
+    </div>
+
+    <aside class="today" aria-labelledby="todayTitle">
+      <div class="today-head">
+        <h2 id="todayTitle">Hari ini</h2>
+        <span class="store" id="storeChip">Tersimpan di perangkat</span>
+      </div>
+      <div class="progress">
+        <div class="big-today"><span id="todayKcal">0</span> <span class="of">/ <span id="todayTarget">2.150</span> kkal</span></div>
+        <div class="bar" id="bar" role="progressbar" aria-label="Kalori hari ini" aria-valuemin="0" aria-valuemax="2150" aria-valuenow="0"><i id="barFill"></i></div>
+        <p class="remain" id="remain"></p>
+      </div>
+      <dl class="macro-row">
+        <div class="macro"><dt><i class="dot sp-p"></i>Protein</dt><dd id="tP">0 g</dd></div>
+        <div class="macro"><dt><i class="dot sp-c"></i>Karbohidrat</dt><dd id="tC">0 g</dd></div>
+        <div class="macro"><dt><i class="dot sp-f"></i>Lemak</dt><dd id="tF">0 g</dd></div>
+      </dl>
+      <div class="meals" id="meals"></div>
+      <section aria-labelledby="weekTitle">
+        <div class="week-head"><h3 id="weekTitle">7 hari terakhir</h3><span id="weekAvg"></span></div>
+        <div class="wbars" id="weekBars"><span class="tline" id="targetLine" aria-hidden="true"></span></div>
+        <div class="wlabels" id="weekLabels"></div>
+        <p class="week-cap">Garis putus-putus menandai target harianmu.</p>
+      </section>
+      <div class="target-box">
+        <div class="target-row" id="targetRow">
+          <span>Target harian <b id="targetVal">2.150</b> kkal</span>
+          <button type="button" class="link" id="editTarget">Ubah</button>
+        </div>
+        <form id="targetForm" hidden>
+          <label for="targetIn" class="vh">Target kalori harian (kkal)</label>
+          <input id="targetIn" type="number" inputmode="numeric" min="800" max="6000" step="50" required>
+          <span>kkal</span>
+          <button class="btn sm primary" type="submit">Simpan</button>
+          <button type="button" class="link" id="cancelTarget">Batal</button>
+        </form>
+        <p class="foot">2.150 kkal adalah acuan AKG pada label gizi kemasan di Indonesia. Kebutuhanmu bisa berbeda menurut usia, berat badan, dan aktivitas.</p>
+      </div>
+      <div class="data-box">
+        <h3>Aplikasi &amp; data</h3>
+        <div class="actions">
+          <button type="button" class="btn sm primary" id="installBtn" hidden>Pasang aplikasi</button>
+          <button type="button" class="btn sm" id="exportBtn">Cadangkan data</button>
+          <input type="file" id="importIn" class="vh" accept="application/json,.json">
+          <label for="importIn" class="btn sm">Pulihkan cadangan</label>
+        </div>
+        <p class="foot" id="iosHint" hidden>Di iPhone/iPad: buka di Safari, ketuk tombol Bagikan, lalu pilih "Tambah ke Layar Utama".</p>
+        <p class="foot">Semua catatan dan foto kecil tersimpan hanya di perangkat ini. Cadangkan sesekali agar data tidak hilang saat ganti HP.</p>
+      </div>
+    </aside>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
