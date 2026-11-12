@@ -9,17 +9,17 @@ import { mkdir, writeFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const MODEL = 'Xenova/clip-vit-base-patch32';
+const MODEL = 'Xenova/mobileclip_s0';
 const FILES = [
   'config.json',
   'preprocessor_config.json',
   'tokenizer.json',
   'tokenizer_config.json',
-  'special_tokens_map.json',
-  'onnx/vision_model_quantized.onnx',
-  'onnx/text_model_quantized.onnx',
+  'onnx/text_model_quantized.onnx',   // ±43 MB, dipakai sekali untuk menyusun kamus makanan
+  'onnx/vision_model.onnx',           // ±46 MB, model foto utama
+  'onnx/vision_model_quantized.onnx', // ±12 MB, versi ringan untuk HP dengan memori terbatas
 ];
-const OPTIONAL = new Set(['special_tokens_map.json']);
+const OPTIONAL = new Set();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'models', ...MODEL.split('/'));
 

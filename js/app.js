@@ -452,31 +452,78 @@ $('#stopBtn').addEventListener('click', () => {
 let visionMod = null;
 const getVision = async () => (visionMod = visionMod || await import('./vision.js'));
 
-function renderAi(extra) {
-  const box = $('#aiBox'), t = $('#aiTitle'), p = $('#aiText'), b = $('#aiBtn');
+function renderAi(extra, detail, frac) {
+  const box = $('#aiBox'), t = $('#aiTitle'), p = $('#aiText'), b = $('#aiBtn'), d = $('#aiDetail');
+  const bar = $('#aiBar');
   box.classList.toggle('ready', S.vision === 'ready');
   b.hidden = !(S.vision === 'none' || S.vision === 'error');
-  if (S.vision === 'ready') { t.textContent = 'AI foto siap'; p.textContent = 'Berjalan di perangkat ini dan bisa dipakai tanpa internet.'; }
-  else if (S.vision === 'loading') { t.textContent = 'Menyiapkan AI foto…'; p.textContent = extra || 'Tunggu sebentar.'; }
-  else if (S.vision === 'error') { t.textContent = 'AI foto belum bisa disiapkan'; p.textContent = extra || 'Periksa koneksi internet, lalu coba lagi. Membaca menu dan pencarian tetap bisa dipakai.'; b.textContent = 'Coba lagi'; }
-  else { t.textContent = 'AI foto belum disiapkan'; p.textContent = 'Unduh sekali (±150 MB), setelah itu bisa dipakai tanpa internet. Pakai Wi-Fi bila bisa.'; b.textContent = 'Siapkan sekarang'; }
+  bar.hidden = S.vision !== 'loading';
+  if (S.vision === 'loading') $('#aiFill').style.width = (frac == null ? 100 : Math.max(3, Math.min(100, frac * 100))) + '%';
+  d.textContent = detail || '';
+  d.hidden = !detail;
+  if (S.vision === 'ready') {
+    t.textContent = 'AI foto siap';
+    p.textContent = visionMod && visionMod.isLite()
+      ? 'Berjalan di perangkat ini tanpa internet. Memakai versi ringan karena memori perangkat terbatas.'
+      : 'Berjalan di perangkat ini dan bisa dipakai tanpa internet.';
+  } else if (S.vision === 'loading') {
+    t.textContent = 'Menyiapkan AI foto…';
+    p.textContent = extra || 'Tunggu sebentar.';
+  } else if (S.vision === 'error') {
+    t.textContent = 'AI foto belum bisa disiapkan';
+    p.textContent = extra || 'Periksa koneksi internet, lalu coba lagi. Membaca menu dan pencarian tetap bisa dipakai.';
+    b.textContent = 'Coba lagi';
+  } else {
+    t.textContent = 'AI foto belum disiapkan';
+    p.textContent = 'Unduh sekali (±90 MB), setelah itu bisa dipakai tanpa internet. Pakai Wi-Fi, dan biarkan layar menyala sampai selesai.';
+    b.textContent = 'Siapkan sekarang';
+  }
 }
 
 function describeLoad(pr) {
+  const keep = ' Biarkan aplikasi tetap terbuka.';
   if (!pr) return ['Menyiapkan AI foto…', null];
-  if (pr.phase === 'prepare') return ['Menyusun kamus makanan untuk AI… ' + pr.done + '/' + pr.count, pr.done / pr.count];
-  if (pr.total > 0) return ['Mengunduh AI foto (sekali saja)… ' + MB(pr.loaded) + ' / ' + MB(pr.total) + ' MB', pr.loaded / pr.total];
+  if (pr.phase === 'retry') return ['Koneksi terputus. Mencoba lagi (' + pr.attempt + ')…', null];
+  if (pr.phase === 'prepare') return ['Langkah 1 dari 2: menyusun kamus makanan… ' + pr.done + '/' + pr.count, pr.done / pr.count];
+  if (pr.phase === 'init') return ['Langkah ' + pr.step + ' dari 2: menyiapkan di memori…', null];
+  if (pr.phase === 'download' && pr.total > 0) {
+    return ['Langkah ' + pr.step + ' dari 2: mengunduh ' + MB(pr.loaded) + ' / ' + MB(pr.total) + ' MB.' + keep, pr.loaded / pr.total];
+  }
   return ['Memuat AI foto…', null];
+}
+
+// Menjaga layar tetap menyala selama unduhan, karena iPhone menghentikan unduhan saat layar terkunci.
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && navigator.wakeLock && document.visibilityState === 'visible') {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!on && wakeLock) {
+      const w = wakeLock; wakeLock = null; await w.release();
+    }
+  } catch (e) { wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && S.vision === 'loading') keepAwake(true);
+});
+
+function loadErrorCopy(e, v) {
+  if (navigator.onLine === false) return 'Kamu sedang offline. Sambungkan ke internet sekali untuk mengunduh AI foto.';
+  if (v && v.isMemoryError(e)) return 'Memori perangkat tidak cukup. Tutup aplikasi lain, lalu coba lagi.';
+  if (document.visibilityState !== 'visible') return 'Unduhan terhenti karena aplikasi ditutup atau layar terkunci. Ketuk Coba lagi; bagian yang sudah selesai tidak diunduh ulang.';
+  return 'Unduhan gagal. Periksa koneksi internet, lalu ketuk Coba lagi. Bagian yang sudah selesai tidak diunduh ulang.';
 }
 
 async function ensureVision(showWork) {
   const v = await getVision();
   if (v.isReady()) { S.vision = 'ready'; renderAi(); return v; }
   S.vision = 'loading'; renderAi();
+  keepAwake(true);
   try {
     await v.load((pr) => {
       const [msg, frac] = describeLoad(pr);
-      renderAi(msg);
+      renderAi(msg, '', frac);
       if (showWork()) work(msg, frac);
     });
     S.vision = 'ready'; renderAi();
@@ -484,10 +531,10 @@ async function ensureVision(showWork) {
   } catch (e) {
     console.error(e);
     S.vision = 'error';
-    renderAi(navigator.onLine === false
-      ? 'Kamu sedang offline. Sambungkan ke internet sekali untuk mengunduh AI foto.'
-      : 'Unduhan gagal. Periksa koneksi internet, lalu coba lagi.');
+    renderAi(loadErrorCopy(e, v), 'Detail: ' + String((e && (e.message || e.name)) || e).slice(0, 160));
     throw e;
+  } finally {
+    keepAwake(false);
   }
 }
 $('#aiBtn').addEventListener('click', () => { ensureVision(() => false).then(() => toast('AI foto siap dipakai')).catch(() => {}); });

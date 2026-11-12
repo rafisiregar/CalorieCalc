@@ -1,6 +1,6 @@
 // Service worker Foto Kalori: membuat aplikasi tetap terbuka tanpa internet.
-// Naikkan VERSION setiap kali isi folder vendor/ atau models/ diganti.
-const VERSION = 'v1';
+// Naikkan VERSION setiap kali isi folder vendor/ diganti.
+const VERSION = 'v2';
 const SHELL = 'fk-shell-' + VERSION;
 const RUNTIME = 'fk-files-' + VERSION;
 
@@ -9,7 +9,8 @@ const SHELL_FILES = [
   './js/app.js', './js/foods.js', './js/db.js', './js/match.js', './js/vision.js', './js/ocr.js',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
 ];
-// File besar yang disimpan di latar belakang agar pembaca menu dan AI foto bisa jalan offline.
+// File pustaka besar yang disimpan di latar belakang agar pembaca menu dan AI foto bisa jalan offline.
+// (File model AI disimpan sendiri oleh Transformers.js, jadi tidak disimpan dua kali di sini.)
 const HEAVY_FILES = [
   './vendor/transformers/transformers.min.js',
   './vendor/ort/ort-wasm-simd-threaded.jsep.mjs',
@@ -53,17 +54,18 @@ self.addEventListener('message', (event) => {
   if (event.data === 'warm') warmHeavy();
 });
 
+function timeout(ms) { return new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)); }
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // unduhan model dari luar dikelola oleh Transformers.js
-
   const path = url.pathname;
-  const heavy = /\/(vendor|models)\//.test(path);
+  if (/\/models\//.test(path)) return;           // model lokal juga dikelola oleh Transformers.js
 
-  if (heavy) {
-    // File besar tidak berubah: ambil dari simpanan dulu.
+  if (/\/vendor\//.test(path)) {
+    // Pustaka besar tidak berubah dalam satu versi: ambil dari simpanan dulu.
     event.respondWith((async () => {
       const c = await caches.open(RUNTIME);
       const hit = await c.match(req, { ignoreSearch: true });
@@ -75,17 +77,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Halaman dan kode aplikasi: tampilkan versi tersimpan, perbarui di latar belakang.
+  // Halaman dan kode aplikasi: ambil versi terbaru jika online, pakai simpanan jika offline.
   event.respondWith((async () => {
     const c = await caches.open(SHELL);
     const key = req.mode === 'navigate' ? new URL('./index.html', self.registration.scope).href : req;
-    const hit = await c.match(key, { ignoreSearch: true });
-    const net = fetch(req).then((res) => {
-      if (res.ok && res.status === 200 && res.type === 'basic') c.put(key, res.clone()).catch(() => {});
+    try {
+      const res = await Promise.race([fetch(req, { cache: 'no-cache' }), timeout(5000)]);
+      if (res.ok && res.status === 200 && res.type === 'basic') event.waitUntil(c.put(key, res.clone()).catch(() => {}));
       return res;
-    }).catch(() => null);
-    if (hit) { event.waitUntil(net); return hit; }
-    const res = await net;
-    return res || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    } catch (e) {
+      const hit = await c.match(key, { ignoreSearch: true });
+      return hit || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    }
   })());
 });

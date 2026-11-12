@@ -101,7 +101,9 @@ input:disabled + label.btn{opacity:.45;pointer-events:none}
 .ai-box.ready{background:var(--pandan-soft);color:var(--pandan)}
 .ai-box b{display:block;font-size:.88rem}
 .ai-box p{margin:0;font-size:.8rem;max-width:52ch}
-.ai-box > div{min-width:0;flex:1 1 220px}
+.ai-box > div{min-width:0;flex:1 1 220px;display:grid;gap:6px}
+.ai-bar{background:var(--surface)}
+.ai-box .ai-detail{font-size:.72rem;opacity:.85;overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .search{display:grid;gap:4px;position:relative}
 .search label{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .search input{min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);padding:0 12px;width:100%}
